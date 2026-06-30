@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet">
+
+    <title>Admin</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="logo">HikingApp</div>
+
+        <div class="nav-actions">
+            <button class="btn-outline" onclick="window.location.href='/'">Acasă</button>
+
+            <button class="btn-outline" onclick="window.location.href='/trails-page'">Trasee</button>
+
+            <button class="btn-outline" onclick="logout()">Log out</button>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <h1 class="section-title">Admin</h1>
+
+        <p class="section-subtitle">Gestionează traseele din aplicație.</p>
+
+        <div class="card admin-card">
+            <h2>Adaugă traseu</h2>
+
+            <form id="create-trail-form" class="admin-form">
+
+                <input class="input" type="text" id="title" placeholder="Titlu" required>
+                <input class="input" type="text" id="slug" placeholder="Slug" required>
+                <input class="input" type="text" id="description" placeholder="Descriere" required>
+                <input class="input" type="text" id="region" placeholder="Regiune" required>
+                <input class="input" type="text" id="start_point_name" placeholder="Start" required>
+                <input class="input" type="text" id="end_point_name" placeholder="Final">
+
+                <select class="input" id="difficulty" required>
+                    <option value="easy">Ușor</option>
+                    <option value="medium">Mediu</option>
+                    <option value="hard">Greu</option>
+                </select>
+
+                <input class="input" type="text" id="trail_type" placeholder="Tip traseu" required>
+                <input class="input" type="number" step="0.1" id="duration_hours" placeholder="Durată" required>
+
+                <input class="input" type="text" id="equipment_needed" placeholder="Echipament">
+                <input class="input" type="text" id="season_recommendation" placeholder="Sezon">
+                <input class="input" type="text" id="access_restrictions" placeholder="Restricții">
+
+                <input class="input" type="text" id="gps_track_file" placeholder="GPS">
+
+                <input class="input" type="text" id="cover_image" placeholder="Poza cover (ex: images/rimetea.jpg)">
+
+                <button class="btn" type="submit">Creează traseu</button>
+            </form>
+
+            <p id="message"></p>
+        </div>
+
+        <div id="update-section" class="card admin-card" style="display:none;">
+            <h2>Editează traseu</h2>
+
+            <form id="update-trail-form" class="admin-form">
+
+                <div class="form-field">
+                    <label>ID traseu</label>
+                    <input class="input" type="number" id="update_id" readonly>
+                </div>
+
+                <div class="form-field">
+                    <label>Titlu</label>
+                    <input class="input" type="text" id="update_title" placeholder="Titlu">
+                </div>
+
+                <div class="form-field">
+                    <label>Slug</label>
+                    <input class="input" type="text" id="update_slug" placeholder="Slug">
+                </div>
+
+                <div class="form-field">
+                    <label>Descriere</label>
+                    <input class="input" type="text" id="update_description" placeholder="Descriere">
+                </div>
+
+                <div class="form-field">
+                    <label>Regiune</label>
+                    <input class="input" type="text" id="update_region" placeholder="Regiune">
+                </div>
+
+                <div class="form-field">
+                    <label>Punct start</label>
+                    <input class="input" type="text" id="update_start_point_name" placeholder="Start">
+                </div>
+
+                <div class="form-field">
+                    <label>Punct final</label>
+                    <input class="input" type="text" id="update_end_point_name" placeholder="Final">
+                </div>
+
+                <div class="form-field">
+                    <label>Dificultate</label>
+                    <select class="input" id="update_difficulty">
+                        <option value="">-- nu modifica --</option>
+                        <option value="easy">Ușor</option>
+                        <option value="medium">Mediu</option>
+                        <option value="hard">Greu</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label>Tip traseu</label>
+                    <input class="input" type="text" id="update_trail_type" placeholder="Tip traseu">
+                </div>
+
+                <div class="form-field">
+                    <label>Distanță km</label>
+                    <input class="input" type="number" step="0.01" id="update_distance_km" placeholder="Distanță">
+                </div>
+
+                <div class="form-field">
+                    <label>Diferență nivel</label>
+                    <input class="input" type="number" id="update_elevation_gain" placeholder="Diferență nivel">
+                </div>
+
+                <div class="form-field">
+                    <label>Durată ore</label>
+                    <input class="input" type="number" step="0.1" id="update_duration_hours" placeholder="Durată">
+                </div>
+
+                <div class="form-field">
+                    <label>Echipament</label>
+                    <input class="input" type="text" id="update_equipment_needed" placeholder="Echipament">
+                </div>
+
+                <div class="form-field">
+                    <label>Sezon recomandat</label>
+                    <input class="input" type="text" id="update_season_recommendation" placeholder="Sezon recomandat">
+                </div>
+
+                <div class="form-field">
+                    <label>Restricții acces</label>
+                    <input class="input" type="text" id="update_access_restrictions" placeholder="Restricții acces">
+                </div>
+
+                <div class="form-field">
+                    <label>Fișier GPS</label>
+                    <input class="input" type="text" id="update_gps_track_file" placeholder="gpx/nume-fisier.gpx">
+                </div>
+
+                <div class="form-field">
+                    <label>Poza cover</label>
+                    <input class="input" type="text" id="update_cover_image" placeholder="images/trails/nume-poza.jpg">
+                </div>
+
+                <div class="form-field">
+                    <label>Latitudine start</label>
+                    <input class="input" type="number" step="0.000001" id="update_start_latitude">
+                </div>
+
+                <div class="form-field">
+                    <label>Longitudine start</label>
+                    <input class="input" type="number" step="0.000001" id="update_start_longitude">
+                </div>
+
+                <button class="btn" type="submit">Salvează</button>
+
+                <button class="btn-outline" type="button" onclick="hideUpdateForm()">Anulează</button>
+            </form>
+        </div>
+
+        <h2 style="margin-top:40px;">Toate traseele</h2>
+        <div id="trails-list" class="admin-trails-list"></div>
+
+    </div>
+
+    <script>
+        const token = localStorage.getItem("token");
+
+        const user = JSON.parse(localStorage.getItem("user"));
+
+        const message = document.getElementById("message");
+
+        const updateSection = document.getElementById("update-section");
+
+        function logout() {
+            const confirmLogout = confirm("Sigur doresti sa te deloghezi?");
+
+            if (!confirmLogout) {
+                return;
+            }
+
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+
+            window.location.href = "/";
+        }
+
+        if (!token || !user || user.role !== "admin") {
+            window.location.href = "/";
+        }
+
+        async function loadAdminTrails() {
+            const res = await fetch("/trails?page=1&per_page=100");
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                message.innerText = data.error || "Eroare la încărcarea traseelor";
+                return;
+            }
+
+            let html = "";
+
+            data.trails.forEach(trail => {
+                html += `
+                    <div class="admin-trail-card">
+                        <div>
+                            <h3>${trail.title}</h3>
+                            <p>${trail.region} • ${trail.distance_km} km</p>
+                        </div>
+
+                        <div class="admin-actions">
+                            <button class="btn" onclick="goToTrail(${trail.id})">Vezi</button>
+                            <button class="btn-outline" onclick="loadTrailForEdit(${trail.id})">Editează</button>
+                            <button class="btn-outline" onclick="deleteTrail(${trail.id})">Șterge</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById("trails-list").innerHTML = html;
+        }
+
+        function goToTrail(trailId) {
+            window.location.href = `/trails/${trailId}/page`;
+        }
+
+        async function deleteTrail(trailId) {
+            const confirmDelete = confirm("Sigur dorești să ștergi acest traseu?");
+
+            if (!confirmDelete) {
+                return;
+            }
+
+            const res = await fetch(`/trails/${trailId}`, {
+                method: "DELETE",
+                headers: {
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                message.innerText = "Traseu șters cu succes";
+                loadAdminTrails();
+            } else {
+                message.innerText = data.error || "Eroare la ștergere";
+            }
+        }
+
+        async function loadTrailForEdit(trailId) {
+            const res = await fetch(`/trails/${trailId}`);
+
+            const trail = await res.json();
+
+            if (!res.ok) {
+                message.innerText = trail.error || "Eroare la încărcarea traseului";
+                return;
+            }
+
+            updateSection.style.display = "block";
+
+            document.getElementById("update_id").value = trail.id;
+            document.getElementById("update_title").value = trail.title || "";
+            document.getElementById("update_slug").value = trail.slug || "";
+            document.getElementById("update_description").value = trail.description || "";
+            document.getElementById("update_region").value = trail.region || "";
+            document.getElementById("update_start_point_name").value = trail.start_point_name || "";
+            document.getElementById("update_end_point_name").value = trail.end_point_name || "";
+            document.getElementById("update_difficulty").value = trail.difficulty || "";
+            document.getElementById("update_trail_type").value = trail.trail_type || "";
+            document.getElementById("update_distance_km").value = trail.distance_km ?? "";
+            document.getElementById("update_elevation_gain").value = trail.elevation_gain ?? "";
+            document.getElementById("update_duration_hours").value = trail.duration_hours ?? "";
+            document.getElementById("update_equipment_needed").value = trail.equipment_needed || "";
+            document.getElementById("update_season_recommendation").value = trail.season_recommendation || "";
+            document.getElementById("update_access_restrictions").value = trail.access_restrictions || "";
+            document.getElementById("update_gps_track_file").value = trail.gps_track_file || "";
+            document.getElementById("update_cover_image").value = trail.cover_image || "";
+            document.getElementById("update_start_latitude").value = trail.start_latitude ?? "";
+            document.getElementById("update_start_longitude").value = trail.start_longitude ?? "";
+
+            window.scrollTo({
+                top: updateSection.offsetTop,
+                behavior: "smooth"
+            });
+        }
+
+        function hideUpdateForm() {
+            updateSection.style.display = "none";
+            document.getElementById("update-trail-form").reset();
+        }
+
+        document.getElementById("create-trail-form").addEventListener("submit", async function(e) {
+            e.preventDefault();
+
+            const res = await fetch("/trails", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({
+                    title: document.getElementById("title").value,
+                    slug: document.getElementById("slug").value,
+                    description: document.getElementById("description").value,
+                    region: document.getElementById("region").value,
+                    start_point_name: document.getElementById("start_point_name").value,
+                    end_point_name: document.getElementById("end_point_name").value,
+                    difficulty: document.getElementById("difficulty").value,
+                    trail_type: document.getElementById("trail_type").value,
+                    duration_hours: parseFloat(document.getElementById("duration_hours").value),
+                    equipment_needed: document.getElementById("equipment_needed").value,
+                    season_recommendation: document.getElementById("season_recommendation").value,
+                    access_restrictions: document.getElementById("access_restrictions").value,
+                    gps_track_file: document.getElementById("gps_track_file").value,
+                    cover_image: document.getElementById("cover_image").value
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                message.innerText = "Traseu creat cu succes";
+
+                document.getElementById("create-trail-form").reset();
+
+                loadAdminTrails();
+            } else {
+                message.innerText = data.error || "Eroare la creare traseu";
+            }
+        });
+
+        document.getElementById("update-trail-form").addEventListener("submit", async function(e) {
+            e.preventDefault();
+
+            const id = document.getElementById("update_id").value;
+
+            const body = {};
+
+            const fields = [
+                "title", "slug", "description", "region", "start_point_name",
+                "end_point_name", "difficulty", "trail_type", "distance_km",
+                "elevation_gain", "duration_hours", "equipment_needed",
+                "season_recommendation", "access_restrictions", "gps_track_file",
+                "cover_image", "start_latitude", "start_longitude"
+            ];
+
+            fields.forEach(field => {
+                const value = document.getElementById(`update_${field}`).value;
+
+                if (value !== "") {
+                    if (
+                        field === "distance_km" ||
+                        field === "duration_hours" ||
+                        field === "start_latitude" ||
+                        field === "start_longitude"
+                    ) {
+                        body[field] = parseFloat(value);
+                    } else if (field === "elevation_gain") {
+                        body[field] = parseInt(value);
+                    } else {
+                        body[field] = value;
+                    }
+                }
+            });
+
+            const res = await fetch(`/trails/${id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify(body)
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                message.innerText = "Traseu actualizat cu succes";
+
+                hideUpdateForm();
+
+                loadAdminTrails();
+            } else {
+                message.innerText = data.error || "Eroare la update";
+            }
+        });
+
+        loadAdminTrails();
+    </script>
+</body>
+</html>
