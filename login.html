@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet">
+
+    <title>Login / Register</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="logo">HikingApp</div>
+
+        <div class="nav-actions">
+            <button class="btn-outline" onclick="window.location.href='/'">Acasă</button>
+        </div>
+    </div>
+
+    <div class="auth-page">
+
+        <div class="auth-header">
+            <h1>Intră în cont</h1>
+            <p>Salvează trasee favorite, marchează trasee parcurse și lasă review-uri.</p>
+        </div>
+
+        <div class="auth-layout">
+
+            <div class="auth-card">
+                <h2>Login</h2>
+
+                <form id="login-form">
+                    <label>Email</label>
+                    <input class="input" type="email" id="login-email" required>
+
+                    <label>Parolă</label>
+                    <input class="input" type="password" id="login-password" required>
+
+                    <button class="btn auth-btn" type="submit">Login</button>
+                </form>
+
+                <p class="profile-card-subtitle">sau autentifică-te / creează cont cu Google</p>
+
+                <div id="g_id_onload"
+                    data-client_id="460937994747-jvvl9h9l3ui31qfbo9udma3bbhc1fusk.apps.googleusercontent.com"
+                    data-callback="handleGoogleLogin">
+                </div>
+
+                <div class="g_id_signin"
+                    data-type="standard"
+                    data-size="large"
+                    data-theme="outline"
+                    data-text="continue_with"
+                    data-shape="pill"
+                    data-logo_alignment="left">
+                </div>
+
+                <p id="login-message" class="form-message"></p>
+            </div>
+
+            <div class="auth-card">
+                <h2>Creează cont</h2>
+
+                <form id="register-form">
+                    <label>Nume</label>
+                    <input class="input" type="text" id="register-name" required>
+
+                    <label>Email</label>
+                    <input class="input" type="email" id="register-email" required>
+
+                    <label>Parolă</label>
+                    <input class="input" type="password" id="register-password" required>
+
+                    <button class="btn auth-btn" type="submit">Register</button>
+                </form>
+
+                <p id="register-message" class="form-message"></p>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+
+        const loginMessage = document.getElementById("login-message");
+        const registerMessage = document.getElementById("register-message");
+
+        async function handleGoogleLogin(response) {
+            try {
+                const res = await fetch("/google-login", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        token: response.credential
+                    })
+                });
+
+                let data = {};
+
+                try {
+                    data = await res.json();
+                } catch (e) {
+                    data = {};
+                }
+
+                if (res.ok) {
+                    localStorage.setItem("token", data.access_token);
+
+                    localStorage.setItem("user", JSON.stringify(data.user));
+
+                    window.location.href = "/trails-page";
+                } else {
+                    loginMessage.innerText =
+                        data.error || "Eroare la autentificarea cu Google";
+                }
+            } catch (error) {
+                loginMessage.innerText =
+                    "Eroare la conectarea cu serverul.";
+            }
+        }
+
+        async function handleLoginSubmit(e) {
+            e.preventDefault();
+
+            const email = document.getElementById("login-email").value;
+            const password = document.getElementById("login-password").value;
+
+            const res = await fetch("/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: password
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                localStorage.setItem("token", data.access_token);
+
+                localStorage.setItem("user", JSON.stringify(data.user));
+
+                loginMessage.innerText = "Login reușit";
+
+                window.location.href = "/trails-page";
+            } else {
+                loginMessage.innerText = data.error || "Eroare la login";
+            }
+        }
+
+        async function handleRegisterSubmit(e) {
+            e.preventDefault();
+
+            const name = document.getElementById("register-name").value;
+            const email = document.getElementById("register-email").value;
+            const password = document.getElementById("register-password").value;
+
+            const registerRes = await fetch("/users", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    name: name,
+                    email: email,
+                    password: password
+                })
+            });
+
+            const registerData = await registerRes.json();
+
+            if (!registerRes.ok) {
+                registerMessage.innerText = registerData.error || "Eroare la înregistrare";
+                return;
+            }
+
+            const loginRes = await fetch("/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    email: email,
+                    password: password
+                })
+            });
+
+            const loginData = await loginRes.json();
+
+            if (loginRes.ok) {
+                localStorage.setItem("token", loginData.access_token);
+
+                localStorage.setItem("user", JSON.stringify(loginData.user));
+
+                window.location.href = "/trails-page";
+            } else {
+                registerMessage.innerText = "Cont creat, dar login-ul automat a eșuat";
+            }
+        }
+
+        document.getElementById("login-form").addEventListener("submit", handleLoginSubmit);
+
+        document.getElementById("register-form").addEventListener("submit", handleRegisterSubmit);
+
+    </script>
+</body>
+</html>
