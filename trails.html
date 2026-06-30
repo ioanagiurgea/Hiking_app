@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet">
+
+    <title>Trasee</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="logo">HikingApp</div>
+
+        <div class="nav-actions">
+
+            <button id="admin-button"
+                    class="btn-outline"
+                    style="display:none;"
+                    onclick="window.location.href='/admin-page'">
+                Admin
+            </button>
+
+            <button class="btn" onclick="window.location.href='/profile-page'">Contul meu</button>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <h1 class="section-title">Explorează trasee</h1>
+
+        <p class="section-subtitle">
+            Caută trasee montane, filtrează după dificultate și vezi punctele de start pe hartă.
+        </p>
+
+        <div class="card filters-card">
+
+            <input type="text" id="search" class="input" placeholder="Caută traseu">
+
+            <select id="difficulty" class="input">
+                <option value="">Toate dificultățile</option>
+                <option value="easy">Ușor</option>
+                <option value="medium">Mediu</option>
+                <option value="hard">Greu</option>
+            </select>
+
+            <select id="sort" class="input">
+                <option value="">Fără sortare</option>
+                <option value="rating">Rating</option>
+                <option value="distance">Distanță</option>
+            </select>
+
+            <button class="btn" onclick="loadTrails()">Caută</button>
+
+            <button class="btn-outline" onclick="resetFilters()">Reset</button>
+        </div>
+
+        <p id="results-count" class="results-count"></p>
+
+        <div class="trails-layout">
+
+            <div class="map-card">
+                <div id="map"></div>
+            </div>
+
+            <div id="trails-list" class="trails-list"></div>
+        </div>
+
+        <div id="pagination" class="pagination">
+
+            <button id="prev-btn" class="btn-outline" onclick="previousPage()">Pagina anterioară</button>
+
+            <span id="page-info"></span>
+
+            <button id="next-btn" class="btn-outline" onclick="nextPage()">Pagina următoare</button>
+        </div>
+    </div>
+
+    <script>
+
+        const user = JSON.parse(localStorage.getItem("user"));
+
+        if (user && user.role === "admin") {
+            document.getElementById("admin-button").style.display = "inline-block";
+        }
+
+        let currentPage = 1;
+
+        let totalPages = 1;
+
+        let map = L.map("map").setView([45.9432, 24.9668], 6);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(map);
+
+        let markers = [];
+
+        function formatDifficulty(difficulty) {
+            if (difficulty === "easy") {
+                return "Ușor";
+            }
+
+            if (difficulty === "medium") {
+                return "Mediu";
+            }
+
+            if (difficulty === "hard") {
+                return "Greu";
+            }
+
+            return difficulty;
+        }
+
+        async function loadMapTrails() {
+            const search = document.getElementById("search").value;
+            const difficulty = document.getElementById("difficulty").value;
+
+            let url = "/trails?per_page=1000";
+
+            if (search) {
+                url += `&search=${encodeURIComponent(search)}`;
+            }
+
+            if (difficulty) {
+                url += `&difficulty=${encodeURIComponent(difficulty)}`;
+            }
+
+            const res = await fetch(url);
+
+            if (!res.ok) {
+                return;
+            }
+
+            const data = await res.json();
+
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            data.trails.forEach(trail => {
+
+                if (trail.start_latitude != null && trail.start_longitude != null) {
+
+                    let color = "#2f7d4f";
+
+                    if (trail.difficulty === "easy") {
+                        color = "#2f9e44";
+                    }
+
+                    if (trail.difficulty === "medium") {
+                        color = "#f59f00";
+                    }
+
+                    if (trail.difficulty === "hard") {
+                        color = "#d9480f";
+                    }
+
+                    const marker = L.circleMarker(
+                        [trail.start_latitude, trail.start_longitude],
+                        {
+                            radius: 9,
+                            color: color,
+                            fillColor: color,
+                            fillOpacity: 0.85
+                        }
+                    ).addTo(map);
+
+                    marker.bindTooltip(trail.title, {
+                        permanent: false,
+                        direction: "top",
+                        offset: [0, -8]
+                    });
+
+                    marker.on("click", () => {
+                        goToTrail(trail.id);
+                    });
+
+                    markers.push(marker);
+                }
+            });
+
+            if (markers.length > 0) {
+                const group = L.featureGroup(markers);
+
+                map.fitBounds(group.getBounds(), {
+                    padding: [40, 40]
+                });
+            } else {
+                map.setView([45.9432, 24.9668], 6);
+            }
+        }
+
+        async function loadTrails(page = 1) {
+            const search = document.getElementById("search").value;
+            const difficulty = document.getElementById("difficulty").value;
+            const sort = document.getElementById("sort").value;
+
+            let url = `/trails?page=${page}&per_page=5`;
+
+            if (search) {
+                url += `&search=${encodeURIComponent(search)}`;
+            }
+
+            if (difficulty) {
+                url += `&difficulty=${encodeURIComponent(difficulty)}`;
+            }
+
+            if (sort) {
+                url += `&sort=${encodeURIComponent(sort)}`;
+            }
+
+            const res = await fetch(url);
+
+            if (!res.ok) {
+                document.getElementById("trails-list").innerHTML =
+                    "<div class='empty-state'>Eroare la încărcarea traseelor.</div>";
+                return;
+            }
+
+            const data = await res.json();
+
+            const trails = data.trails;
+            currentPage = data.page;
+            totalPages = data.pages;
+
+            document.getElementById("prev-btn").disabled = currentPage === 1;
+
+            document.getElementById("next-btn").disabled = currentPage === totalPages;
+
+            document.getElementById("pagination").style.display =
+                totalPages > 1 ? "flex" : "none";
+
+            let html = "";
+
+            if (trails.length === 0) {
+                html = "<div class='empty-state'>Nu există trasee pentru filtrele selectate.</div>";
+            } else {
+                trails.forEach(trail => {
+                    html += `
+                        <div class="trail-card">
+                            ${trail.cover_image ? `
+                                <img
+                                    src="/static/${trail.cover_image}"
+                                    alt="${trail.title}"
+                                    class="trail-image"
+                                >
+                            ` : ""}
+
+                            <div>
+                                <span class="difficulty-badge ${trail.difficulty}">
+                                    ${formatDifficulty(trail.difficulty)}
+                                </span>
+
+                                <h2>${trail.title}</h2>
+                                <p class="trail-description">${trail.description}</p>
+
+                                <div class="trail-meta">
+                                    <span>${trail.distance_km} km</span>
+                                    <span>${trail.duration_hours} ore</span>
+                                    <span>${trail.average_rating} ⭐</span>
+                                </div>
+                            </div>
+
+                            <button class="btn" onclick="goToTrail(${trail.id})">
+                                Vezi traseu
+                            </button>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById("trails-list").innerHTML = html;
+
+            document.getElementById("results-count").innerText = `Rezultate: ${data.total}`;
+
+            document.getElementById("page-info").innerText = `Pagina ${currentPage} din ${totalPages}`;
+
+            loadMapTrails();
+        }
+
+        function goToTrail(trailId) {
+            window.location.href = `/trails/${trailId}/page`;
+        }
+
+        function resetFilters() {
+            document.getElementById("search").value = "";
+            document.getElementById("difficulty").value = "";
+            document.getElementById("sort").value = "";
+
+            loadTrails(1);
+        }
+
+        function previousPage() {
+            if (currentPage > 1) {
+                loadTrails(currentPage - 1);
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                loadTrails(currentPage + 1);
+            }
+        }
+
+        loadTrails();
+
+    </script>
+
+</body>
+</html>
