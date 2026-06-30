@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet">
+
+    <title>Detalii traseu</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="logo">HikingApp</div>
+
+        <div class="nav-actions">
+            <button class="btn-outline" onclick="window.location.href='/'">Acasă</button>
+
+            <button class="btn-outline" onclick="window.location.href='/trails-page'">Trasee</button>
+
+            <button class="btn" onclick="window.location.href='/profile-page'">Contul meu</button>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <div id="trail" class="trail-detail-card"></div>
+
+        <div class="card route-map-card">
+            <h2>Harta traseului</h2>
+            <div id="route-map"></div>
+        </div>
+
+        <div class="card elevation-card">
+            <h2>Profil altitudine</h2>
+            <canvas id="elevation-chart"></canvas>
+        </div>
+
+        <div class="card weather-card">
+            <h2>Vreme următoarele 3 zile</h2>
+            <div id="weather-info" class="weather-list"></div>
+        </div>
+
+        <div class="detail-actions">
+            <button class="btn" onclick="addFavorite()">Adaugă la favorite</button>
+            <button class="btn-outline" onclick="markCompleted()">Marchează ca parcurs</button>
+        </div>
+
+        <p id="action-message" class="form-message"></p>
+
+        <div class="detail-layout">
+
+            <div class="card">
+                <h2>Review-uri</h2>
+                <div id="reviews"></div>
+            </div>
+
+            <div class="card">
+                <h2>Adaugă review</h2>
+
+                <div class="review-form">
+                    <input class="input" type="number" id="rating" min="1" max="5" placeholder="Rating 1-5">
+                    <input class="input" type="text" id="comment" placeholder="Comentariul tău">
+                    <button class="btn" onclick="addReview()">Trimite</button>
+                </div>
+
+                <p id="review-message" class="form-message"></p>
+            </div>
+        </div>
+
+        <div class="card similar-section">
+            <h2>Trasee similare</h2>
+            <div id="similar-trails" class="similar-trails-list"></div>
+        </div>
+
+    </div>
+
+    <script>
+        const trailId = {{ trail_id }};
+
+        const actionMessage = document.getElementById("action-message");
+
+        let routeMap = null;
+        let elevationChart = null;
+
+        function requireLogin() {
+            const token = localStorage.getItem("token");
+
+            if (!token) {
+                window.location.href = "/login-page";
+                return null;
+            }
+
+            return token;
+        }
+
+        function formatDifficulty(difficulty) {
+            if (difficulty === "easy") {
+                return "Ușor";
+            }
+
+            if (difficulty === "medium") {
+                return "Mediu";
+            }
+
+            if (difficulty === "hard") {
+                return "Greu";
+            }
+
+            return difficulty;
+        }
+
+        function goToTrail(trailId) {
+            window.location.href = `/trails/${trailId}/page`;
+        }
+
+        function openGoogleMaps(latitude, longitude) {
+            const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+            window.open(mapsUrl, "_blank");
+        }
+
+        async function loadTrail() {
+            const res = await fetch(`/trails/${trailId}`);
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                document.getElementById("trail").innerHTML =
+                    "<div class='empty-state'>Traseul nu a fost găsit.</div>";
+                return;
+            }
+
+            const galleryHtml = (data.images || []).slice(0, 6).map(image => `
+                <img
+                    src="/static/${image.image_path}"
+                    class="trail-gallery-image"
+                    alt="Trail image"
+                >
+            `).join("");
+
+            document.getElementById("trail").innerHTML = `
+                <span class="difficulty-badge ${data.difficulty}">
+                    ${formatDifficulty(data.difficulty)}
+                </span>
+
+                <h1>${data.title}</h1>
+
+                <div class="trail-gallery-preview">
+                     ${galleryHtml}
+                </div>
+
+                <p class="trail-detail-description">${data.description}</p>
+
+                <div class="trail-detail-grid">
+
+                    <div>
+                        <strong>Regiune</strong>
+                        <span>${data.region}</span>
+                    </div>
+
+                    <div>
+                        <strong>Dificultate</strong>
+                        <span>${formatDifficulty(data.difficulty)}</span>
+                    </div>
+
+                    <div>
+                        <strong>Tip traseu</strong>
+                        <span>${data.trail_type}</span>
+                    </div>
+
+                    <div>
+                        <strong>Distanță</strong>
+                        <span>${data.distance_km} km</span>
+                    </div>
+
+                    <div>
+                        <strong>Diferență nivel</strong>
+                        <span>${data.elevation_gain} m</span>
+                    </div>
+
+                    <div>
+                        <strong>Durată</strong>
+                        <span>${data.duration_hours} ore</span>
+                    </div>
+
+                    <div>
+                        <strong>Punct start</strong>
+                        <span>${data.start_point_name}</span>
+                    </div>
+
+                    <div>
+                        <strong>Punct final</strong>
+                        <span>${data.end_point_name || "Nespecificat"}</span>
+                    </div>
+
+                    <div>
+                        <strong>Echipament</strong>
+                        <span>${data.equipment_needed || "Nespecificat"}</span>
+                    </div>
+
+                    <div>
+                        <strong>Sezon recomandat</strong>
+                        <span>${data.season_recommendation || "Nespecificat"}</span>
+                    </div>
+
+                    <div>
+                        <strong>Restricții acces</strong>
+                        <span>${data.access_restrictions || "Fără restricții"}</span>
+                    </div>
+
+                    <div>
+                        <strong>Rating</strong>
+                        <span>${data.average_rating} ⭐</span>
+                    </div>
+                </div>
+
+                <button class="btn google-maps-btn"
+                    onclick="openGoogleMaps(${data.start_latitude}, ${data.start_longitude})">
+                   Vezi Google Maps
+                </button>
+            `;
+
+            loadGpxTrack(data.gps_track_file);
+        }
+
+        async function loadReviews() {
+            const res = await fetch(`/trails/${trailId}/reviews`);
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                document.getElementById("reviews").innerHTML =
+                    "<p class='empty-text'>Nu se pot încărca review-urile.</p>";
+                return;
+            }
+
+            let html = "";
+
+            if (data.length === 0) {
+                html = "<p class='empty-text'>Nu există review-uri încă.</p>";
+            } else {
+                data.forEach(r => {
+                    html += `
+                        <div class="review-item">
+                            <strong>${r.rating} ⭐</strong>
+                            <p>${r.comment}</p>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById("reviews").innerHTML = html;
+        }
+
+        async function loadSimilarTrails() {
+            const res = await fetch(`/trails/${trailId}/similar`);
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                document.getElementById("similar-trails").innerHTML =
+                    "<p class='empty-text'>Nu se pot încărca traseele similare.</p>";
+                return;
+            }
+
+            let html = "";
+
+            if (data.length === 0) {
+                html = "<p class='empty-text'>Nu există trasee similare momentan.</p>";
+            } else {
+                data.forEach(trail => {
+                    html += `
+                        <div class="similar-trail-card">
+                            <span class="difficulty-badge ${trail.difficulty}">
+                                ${formatDifficulty(trail.difficulty)}
+                            </span>
+
+                            <h3>${trail.title}</h3>
+                            <p>${trail.description}</p>
+
+                            <div class="trail-meta">
+                                <span>${trail.distance_km} km</span>
+                                <span>${trail.duration_hours} ore</span>
+                                <span>${trail.average_rating} ⭐</span>
+                            </div>
+
+                            <button class="btn" onclick="goToTrail(${trail.id})">
+                                Vezi traseu
+                            </button>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById("similar-trails").innerHTML = html;
+        }
+
+        async function addFavorite() {
+            const token = requireLogin();
+
+            if (!token) {
+                return;
+            }
+
+            const res = await fetch("/favorites", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({ trail_id: trailId })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                actionMessage.innerText = "Traseul a fost adăugat la favorite.";
+            } else {
+                actionMessage.innerText = data.error || "Eroare la adăugarea la favorite.";
+            }
+        }
+
+        async function markCompleted() {
+            const token = requireLogin();
+
+            if (!token) {
+                return;
+            }
+
+            const res = await fetch("/completed_trails", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({ trail_id: trailId })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                actionMessage.innerText = "Traseul a fost marcat ca parcurs.";
+            } else {
+                actionMessage.innerText = data.error || "Eroare la marcarea traseului.";
+            }
+        }
+
+        async function addReview() {
+            const token = requireLogin();
+
+            if (!token) {
+                return;
+            }
+
+            const rating = document.getElementById("rating").value;
+            const comment = document.getElementById("comment").value;
+            const reviewMessage = document.getElementById("review-message");
+
+            if (!rating || !comment.trim()) {
+                reviewMessage.innerText = "Completează ratingul și comentariul.";
+                return;
+            }
+
+            const res = await fetch("/reviews", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({
+                    trail_id: trailId,
+                    rating: parseInt(rating),
+                    comment: comment
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                reviewMessage.innerText = "Review adăugat cu succes.";
+
+                document.getElementById("rating").value = "";
+                document.getElementById("comment").value = "";
+
+                loadReviews();
+                loadTrail();
+                loadSimilarTrails();
+            } else {
+                reviewMessage.innerText = data.error || "Eroare la adăugarea review-ului.";
+            }
+        }
+
+        async function loadWeather() {
+            const res = await fetch(`/trails/${trailId}/weather`);
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                document.getElementById("weather-info").innerHTML =
+                    "<p class='empty-text'>Nu se poate încărca vremea.</p>";
+                return;
+            }
+
+            const current = data.current;
+
+            const forecast = data.forecast.forecastday;
+
+            let html = `
+                <div class="weather-main-card">
+                    <div class="weather-main-left">
+                        <img src="https:${current.condition.icon}" alt="weather">
+
+                        <div>
+                            <h3>${current.temp_c}°C</h3>
+                            <p>${current.condition.text}</p>
+                        </div>
+                    </div>
+
+                    <div class="weather-main-right">
+                        <div>
+                            <span>💨 Vânt</span>
+                            <strong>${current.wind_kph} km/h</strong>
+                        </div>
+
+                        <div>
+                            <span>💧 Umiditate</span>
+                            <strong>${current.humidity}%</strong>
+                        </div>
+
+                        <div>
+                            <span>🌧 Precipitații</span>
+                            <strong>${current.precip_mm} mm</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="forecast-grid">
+            `;
+
+            forecast.forEach(day => {
+                html += `
+                    <div class="forecast-card">
+                        <h4>${day.date}</h4>
+
+                        <img src="https:${day.day.condition.icon}" alt="weather">
+
+                        <p class="forecast-condition">
+                            ${day.day.condition.text}
+                        </p>
+
+                        <div class="forecast-temp">
+                            <span>${day.day.maxtemp_c}°</span>
+                            <span>${day.day.mintemp_c}°</span>
+                        </div>
+
+                        <div class="forecast-extra">
+                            <p>🌧 ${day.day.daily_chance_of_rain}%</p>
+                            <p>💨 ${day.day.maxwind_kph} km/h</p>
+                            <p>🌅 ${day.astro.sunrise}</p>
+                            <p>🌇 ${day.astro.sunset}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+
+            document.getElementById("weather-info").innerHTML = html;
+        }
+
+        async function loadGpxTrack(gpxPath) {
+            if (!gpxPath) {
+                document.querySelector(".route-map-card").style.display = "none";
+                document.querySelector(".elevation-card").style.display = "none";
+                return;
+            }
+
+            const res = await fetch(`/static/${gpxPath}`);
+
+            if (!res.ok) {
+                document.querySelector(".route-map-card").style.display = "none";
+                document.querySelector(".elevation-card").style.display = "none";
+                return;
+            }
+
+            const gpxText = await res.text();
+
+            const parser = new DOMParser();
+            const xml = parser.parseFromString(gpxText, "application/xml");
+
+            const points = Array.from(xml.getElementsByTagName("trkpt"));
+
+            if (points.length === 0) {
+                document.querySelector(".route-map-card").style.display = "none";
+                document.querySelector(".elevation-card").style.display = "none";
+                return;
+            }
+
+            const coordinates = [];
+            const elevations = [];
+            const distances = [];
+
+            let totalDistance = 0;
+
+            points.forEach((point, index) => {
+                const lat = parseFloat(point.getAttribute("lat"));
+                const lon = parseFloat(point.getAttribute("lon"));
+
+                const eleTag = point.getElementsByTagName("ele")[0];
+                const ele = eleTag ? parseFloat(eleTag.textContent) : 0;
+
+                coordinates.push([lat, lon]);
+                elevations.push(ele);
+
+                if (index === 0) {
+                    distances.push(0);
+                } else {
+                    const previous = coordinates[index - 1];
+                    const current = coordinates[index];
+
+                    totalDistance += calculateDistance(
+                        previous[0],
+                        previous[1],
+                        current[0],
+                        current[1]
+                    );
+
+                    distances.push(totalDistance.toFixed(2));
+                }
+            });
+
+            if (routeMap) {
+                routeMap.remove();
+            }
+
+            routeMap = L.map("route-map");
+
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                attribution: "&copy; OpenStreetMap contributors"
+            }).addTo(routeMap);
+
+            const routeLine = L.polyline(coordinates, {
+                color: "#2f7d4f",
+                weight: 5,
+                opacity: 0.9
+            }).addTo(routeMap);
+
+            L.circleMarker(coordinates[0], {
+                radius: 8,
+                color: "#2f7d4f",
+                fillColor: "#2f7d4f",
+                fillOpacity: 1
+            }).addTo(routeMap).bindPopup("Start traseu");
+
+            L.circleMarker(coordinates[coordinates.length - 1], {
+                radius: 8,
+                color: "#d9480f",
+                fillColor: "#d9480f",
+                fillOpacity: 1
+            }).addTo(routeMap).bindPopup("Final traseu");
+
+            routeMap.fitBounds(routeLine.getBounds(), {
+                padding: [30, 30]
+            });
+
+            if (elevationChart) {
+                elevationChart.destroy();
+            }
+
+            const ctx = document.getElementById("elevation-chart");
+
+            elevationChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: distances,
+                    datasets: [{
+                        label: "Altitudine (m)",
+                        data: elevations,
+                        tension: 0.25,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: true
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: "Distanță (km)"
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: "Altitudine (m)"
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) *
+                Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) *
+                Math.sin(dLon / 2);
+
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c;
+        }
+
+        loadTrail();
+        loadWeather();
+        loadReviews();
+        loadSimilarTrails();
+    </script>
+
+</body>
+</html>
