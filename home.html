@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet">
+
+    <title>Hiking App</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="logo">HikingApp</div>
+
+        <div class="nav-actions">
+
+            <button id="admin-button"
+                    class="btn-outline"
+                    style="display:none;"
+                    onclick="window.location.href='/admin-page'">
+                Admin
+            </button>
+
+            <button id="auth-button" class="btn" onclick="window.location.href='/login-page'">
+                Login
+            </button>
+
+            <button id="profile-button" class="btn" style="display:none;" onclick="window.location.href='/profile-page'">
+                Contul meu
+            </button>
+
+        </div>
+    </div>
+
+    <section class="hero-section">
+
+        <img
+                src="/static/images/trails/hero.jpg"
+                alt="Hiking"
+                class="hero-image"
+        >
+
+        <div class="hero-overlay">
+            <h1>Descoperă trasee montane din România</h1>
+
+            <button class="btn" onclick="window.location.href='/trails-page'">
+                Explorează trasee
+            </button>
+        </div>
+    </section>
+
+    <div class="container">
+
+        <h1 class="section-title">Descoperă trasee montane</h1>
+
+        <p class="section-subtitle">
+            Descoperă natura, peisaje spectaculoase și cele mai frumoase trasee montane din România. Planifică-ți următoarea aventură și urmărește-ți progresul.
+        </p>
+
+        <div class="card" style="margin-top: 32px; text-align:center;">
+            <h2>Pregătit pentru o nouă aventură?</h2>
+
+            <p style="margin: 16px 0; color: var(--muted);">
+                Găsește traseul perfect pentru tine și începe explorarea.
+            </p>
+
+        </div>
+
+    </div>
+
+    <script>
+
+        const user = JSON.parse(localStorage.getItem("user"));
+
+        if (user && user.role === "admin") {
+            document.getElementById("admin-button").style.display = "inline-block";
+        }
+
+        const token = localStorage.getItem("token");
+
+        const authButton = document.getElementById("auth-button");
+        const profileButton = document.getElementById("profile-button");
+
+        if (token) {
+            authButton.style.display = "none";
+            profileButton.style.display = "inline-block";
+        }
+
+    </script>
+
+</body>
+</html>
