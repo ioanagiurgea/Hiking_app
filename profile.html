@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet">
+
+    <title>Contul meu</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="logo">HikingApp</div>
+
+        <div class="nav-actions">
+
+            <button id="admin-button"
+                    class="btn-outline"
+                    style="display:none;"
+                    onclick="window.location.href='/admin-page'">
+                Admin
+            </button>
+
+            <button class="btn-outline" onclick="window.location.href='/trails-page'">Trasee</button>
+
+            <button class="btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <h1 class="section-title">Contul meu</h1>
+
+        <p class="section-subtitle">Vezi traseele salvate, traseele parcurse și progresul tău.</p>
+
+        <div class="profile-layout">
+
+            <div class="card profile-card">
+                <h2>Date utilizator</h2>
+                <p class="profile-card-subtitle">Actualizează informațiile contului tău.</p>
+
+                <form id="profile-edit-form" class="profile-edit-form">
+
+                    <div class="form-field">
+                        <label>Nume</label>
+                        <input class="input" type="text" id="edit-name" placeholder="Nume">
+                    </div>
+
+                    <div class="form-field">
+                        <label>Email</label>
+                        <input class="input" type="email" id="edit-email" placeholder="Email">
+                    </div>
+
+                    <div id="role-section" class="form-field" style="display:none;">
+                        <label>Rol</label>
+                        <div class="role-badge">Administrator</div>
+                        <p class="small-muted">Rolul poate fi modificat doar de către un administrator.</p>
+                    </div>
+
+                    <button class="btn" type="submit">Salvează modificările</button>
+                </form>
+
+                <p id="profile-message" class="form-message"></p>
+            </div>
+
+            <div id="password-card" class="card password-card">
+                <h2>Schimbă-ți parola</h2>
+
+                <p class="profile-card-subtitle">
+                    Introdu parola actuală și alege o parolă nouă.
+                </p>
+
+                <form id="change-password-form" class="profile-edit-form">
+
+                    <div class="form-field">
+                        <label>Parola actuală</label>
+                        <input
+                                class="input"
+                                type="password"
+                                id="current-password"
+                                placeholder="Introdu parola actuală">
+                    </div>
+
+                    <div class="form-field">
+                        <label>Parola nouă</label>
+                        <input
+                                class="input"
+                                type="password"
+                                id="new-password"
+                                placeholder="Introdu parola nouă">
+                    </div>
+
+                    <button class="btn" type="submit">
+                        Schimbă parola
+                    </button>
+                </form>
+
+                <p id="password-message" class="form-message"></p>
+            </div>
+
+            <div class="card progress-card">
+                <h2>Nivel drumeț</h2>
+
+                <div id="progress-info"></div>
+            </div>
+
+            <div class="profile-section">
+                <h2>Favorite</h2>
+
+                <div id="favorites-list" class="profile-trails-list"></div>
+            </div>
+
+            <div class="profile-section">
+                <h2>Trasee parcurse</h2>
+
+                <div id="completed-list" class="profile-trails-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        const user = JSON.parse(localStorage.getItem("user"));
+
+        const token = localStorage.getItem("token");
+
+        const profileMessage = document.getElementById("profile-message");
+        const passwordMessage = document.getElementById("password-message");
+
+        if (user && user.role === "admin") {
+            document.getElementById("admin-button").style.display = "inline-block";
+        }
+
+        if (!token) {
+            window.location.href = "/login-page";
+        } else {
+            loadProfile();
+            loadProgress();
+            loadFavorites();
+            loadCompletedTrails();
+        }
+
+        async function loadProfile() {
+            const res = await fetch("/me", {
+                headers: {
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            const user = await res.json();
+
+            if (!res.ok) {
+                forceLogout();
+                return;
+            }
+
+            document.getElementById("edit-name").value = user.name || "";
+            document.getElementById("edit-email").value = user.email || "";
+
+            if (user.role === "admin") {
+                document.getElementById("role-section").style.display = "block";
+            } else {
+                document.getElementById("role-section").style.display = "none";
+            }
+
+            if (user.auth_provider === "google") {
+                document.getElementById("password-card").style.display = "none";
+            } else {
+                document.getElementById("password-card").style.display = "block";
+            }
+        }
+
+        async function loadProgress() {
+            const res = await fetch("/me/progress", {
+                headers: {
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            if (!res.ok) {
+                forceLogout();
+                return;
+            }
+
+            const progress = await res.json();
+
+            const nextLevelText = progress.next_level
+                ? `Următorul nivel: ${progress.next_level}`
+                : "Ai atins nivelul maxim";
+
+            document.getElementById("progress-info").innerHTML = `
+                <div class="progress-top">
+                    <div>
+                        <span>Nivel actual</span>
+                        <strong>${progress.level}</strong>
+                    </div>
+
+                    <div>
+                        <span>Puncte</span>
+                        <strong>${progress.points}</strong>
+                    </div>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${progress.progress_percent}%;"></div>
+                </div>
+
+                <p class="progress-next">${nextLevelText}</p>
+
+                <div class="progress-stats">
+                   <div>
+                        <strong>${progress.total_distance} km</strong>
+                        <span>kilometri parcurși</span>
+                   </div>
+
+                   <div>
+                        <strong>${progress.total_duration} h</strong>
+                        <span>durată totală</span>
+                   </div>
+
+                   <div>
+                        <strong>${progress.completed_count}</strong>
+                        <span>trasee parcurse</span>
+                   </div>
+                </div>
+            `;
+        }
+
+        async function loadFavorites() {
+            const res = await fetch("/me/favorites", {
+                headers: {
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            if (!res.ok) {
+                forceLogout();
+                return;
+            }
+
+            const favorites = await res.json();
+
+            let html = "";
+
+            if (favorites.length === 0) {
+                html = "<div class='empty-state'>Nu ai trasee favorite.</div>";
+            } else {
+                favorites.forEach(trail => {
+                    html += `
+                        <div class="profile-trail-card">
+                            <div>
+                                <span class="difficulty-badge ${trail.difficulty}">
+                                    ${trail.difficulty}
+                                </span>
+
+                                <h3>${trail.title}</h3>
+                                <p>${trail.description}</p>
+                            </div>
+
+                            <div class="profile-card-actions">
+                                <button class="btn" onclick="goToTrail(${trail.id})">Vezi traseu</button>
+                                <button class="btn-outline" onclick="removeFavorite(${trail.id})">Șterge</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById("favorites-list").innerHTML = html;
+        }
+
+        async function loadCompletedTrails() {
+            const res = await fetch("/me/completed_trails", {
+                headers: {
+                    "Authorization": "Bearer " + token
+                }
+            });
+
+            if (!res.ok) {
+                forceLogout();
+                return;
+            }
+
+            const completed = await res.json();
+
+            let html = "";
+
+            if (completed.length === 0) {
+                html = "<div class='empty-state'>Nu ai trasee parcurse.</div>";
+            } else {
+                completed.forEach(trail => {
+                    html += `
+                        <div class="profile-trail-card">
+                            <div>
+                                <span class="difficulty-badge ${trail.difficulty}">
+                                    ${trail.difficulty}
+                                </span>
+
+                                <h3>${trail.title}</h3>
+                                <p>${trail.description}</p>
+                            </div>
+
+                            <div class="profile-card-actions">
+                                <button class="btn" onclick="goToTrail(${trail.id})">Vezi traseu</button>
+                                <button class="btn-outline" onclick="removeCompleted(${trail.id})">Șterge</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById("completed-list").innerHTML = html;
+        }
+
+        async function removeFavorite(trailId) {
+            const res = await fetch("/favorites", {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({ trail_id: trailId })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                profileMessage.innerText = "Traseul a fost șters din favorite.";
+                loadFavorites();
+            } else {
+                profileMessage.innerText = data.error || "Eroare la ștergere favorite.";
+            }
+        }
+
+        async function removeCompleted(trailId) {
+            const res = await fetch("/completed_trails", {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({ trail_id: trailId })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                profileMessage.innerText = "Traseul a fost șters din lista de trasee parcurse.";
+                loadCompletedTrails();
+                loadProgress();
+            } else {
+                profileMessage.innerText = data.error || "Eroare la ștergere traseu parcurs.";
+            }
+        }
+
+        function goToTrail(trailId) {
+            window.location.href = `/trails/${trailId}/page`;
+        }
+
+        function logout() {
+            const confirmLogout = confirm("Sigur dorești să te deloghezi?");
+
+            if (!confirmLogout) {
+                return;
+            }
+
+            clearSession();
+        }
+
+        function forceLogout() {
+            clearSession();
+        }
+
+        function clearSession() {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            window.location.href = "/";
+        }
+
+        async function updateProfile(e) {
+            e.preventDefault();
+
+            const name = document.getElementById("edit-name").value.trim();
+            const email = document.getElementById("edit-email").value.trim();
+
+            if (!name || !email) {
+                profileMessage.innerText =
+                    "Numele și emailul sunt obligatorii.";
+                return;
+            }
+
+            const res = await fetch("/me", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({
+                    name: name,
+                    email: email
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                profileMessage.innerText =
+                    "Datele contului au fost actualizate cu succes.";
+
+                localStorage.setItem("user", JSON.stringify(data.user));
+
+                loadProfile();
+            } else {
+                profileMessage.innerText =
+                    data.error || "Eroare la actualizarea datelor contului.";
+            }
+        }
+
+        async function changePassword(e) {
+            e.preventDefault();
+
+            const currentPassword =
+                document.getElementById("current-password").value;
+
+            const newPassword =
+                document.getElementById("new-password").value;
+
+            if (!currentPassword || !newPassword) {
+                passwordMessage.innerText =
+                    "Completează toate câmpurile.";
+                return;
+            }
+
+            const res = await fetch("/me/change-password", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                passwordMessage.innerText =
+                    "Parola a fost schimbată cu succes.";
+
+                document.getElementById("current-password").value = "";
+                document.getElementById("new-password").value = "";
+            } else {
+                passwordMessage.innerText =
+                    data.error || "Eroare la schimbarea parolei.";
+            }
+        }
+
+        document.getElementById("profile-edit-form").addEventListener("submit", updateProfile);
+
+        document.getElementById("change-password-form").addEventListener("submit", changePassword);
+
+    </script>
+
+</body>
+</html>
